@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AMMS v2 — Autonomous Market Simulator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">AM</div>
+        <div class="logo-text">AMMS <span>v2</span></div>
+      </div>
+      <nav class="nav">
+        <a class="nav-item active" data-tab="overview" onclick="switchTab('overview')">
+          <span class="nav-icon">◆</span> Overview
+        </a>
+        <a class="nav-item" data-tab="analytics" onclick="switchTab('analytics')">
+          <span class="nav-icon">▣</span> Analytics
+        </a>
+        <a class="nav-item" data-tab="agents" onclick="switchTab('agents')">
+          <span class="nav-icon">◉</span> Agents
+        </a>
+        <a class="nav-item" data-tab="events" onclick="switchTab('events')">
+          <span class="nav-icon">⚡</span> Events
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="status-dot" id="wsStatus"></div>
+        <span id="wsLabel">Connecting...</span>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="sim-badge" id="simStatus">STOPPED</div>
+          <div class="tick-display">Tick <strong id="tickNum">0</strong></div>
+          <div class="speed-display" id="speedDisplay">2.0s</div>
+        </div>
+        <div class="topbar-center">
+          <button class="ctrl-btn start" onclick="simControl('start')" id="btnStart">▶ Start</button>
+          <button class="ctrl-btn stop" onclick="simControl('stop')" id="btnStop">⏸ Stop</button>
+          <button class="ctrl-btn step" onclick="simControl('step')" id="btnStep">⏭ Step</button>
+          <button class="ctrl-btn reset" onclick="simControl('reset')" id="btnReset">↺ Reset</button>
+        </div>
+        <div class="topbar-right">
+          <select class="preset-select" id="presetSelect" onchange="applyPreset(this.value)">
+            <option value="">Presets...</option>
+          </select>
+          <label class="speed-slider">
+            <input type="range" min="100" max="5000" value="2000" step="100" oninput="setSpeed(this.value)" id="speedSlider">
+            <span class="speed-label">Speed</span>
+          </label>
+        </div>
+      </header>
+
+      <!-- Tab: Overview -->
+      <section class="tab-content active" id="tab-overview">
+        <!-- Metrics Row -->
+        <div class="metrics-grid">
+          <div class="metric" id="metricConsumer">
+            <div class="metric-icon">◉</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Consumers</div>
+          </div>
+          <div class="metric" id="metricMerchant">
+            <div class="metric-icon">◈</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Merchants</div>
+          </div>
+          <div class="metric" id="metricProducts">
+            <div class="metric-icon">▣</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Products</div>
+          </div>
+          <div class="metric" id="metricTxns">
+            <div class="metric-icon">↗</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Transactions</div>
+          </div>
+          <div class="metric" id="metricVolume">
+            <div class="metric-icon">$</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Volume</div>
+          </div>
+          <div class="metric accent" id="metricGini">
+            <div class="metric-icon">≡</div>
+            <div class="metric-value">0.00</div>
+            <div class="metric-sub">Gini Index</div>
+          </div>
+          <div class="metric" id="metricPrice">
+            <div class="metric-icon">◐</div>
+            <div class="metric-value">$0</div>
+            <div class="metric-sub">Avg Price</div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+          <div class="card chart-card">
+            <div class="card-header"><div class="card-title">Price Index</div><div class="card-badge purple">Live</div></div>
+            <canvas id="chartPrice"></canvas>
+          </div>
+          <div class="card chart-card">
+            <div class="card-header"><div class="card-title">Wealth Inequality</div><div class="card-badge orange">Gini</div></div>
+            <canvas id="chartGini"></canvas>
+          </div>
+          <div class="card chart-card">
+            <div class="card-header"><div class="card-title">Volume per Tick</div><div class="card-badge teal">$/Tick</div></div>
+            <canvas id="chartVolume"></canvas>
+          </div>
+        </div>
+
+        <!-- Bottom stack: 3 collapsible / reorderable panels -->
+        <div class="bottom-stack" id="bottomStack">
+          <div class="stack-panel" data-panel="products" style="order:1">
+            <div class="stack-header">
+              <div class="stack-title-group">
+                <div class="card-title">Top Products</div>
+                <div class="card-badge">By Sales</div>
+              </div>
+              <div class="stack-controls">
+                <button class="stack-btn" onclick="movePanel('products', -1)" title="Move up">▲</button>
+                <button class="stack-btn" onclick="movePanel('products', 1)" title="Move down">▼</button>
+                <button class="stack-btn toggle" onclick="togglePanel('products')" title="Collapse/expand">−</button>
+              </div>
+            </div>
+            <div class="stack-body" id="panel-products">
+              <div class="table-wrap">
+                <table class="data-table" id="tableProducts">
+                  <thead><tr><th>Product</th><th>Category</th><th>Price</th><th class="num">Sold</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="stack-panel" data-panel="transactions" style="order:2">
+            <div class="stack-header">
+              <div class="stack-title-group">
+                <div class="card-title">Live Transactions</div>
+                <div class="card-badge green">Real-time</div>
+              </div>
+              <div class="stack-controls">
+                <button class="stack-btn" onclick="movePanel('transactions', -1)" title="Move up">▲</button>
+                <button class="stack-btn" onclick="movePanel('transactions', 1)" title="Move down">▼</button>
+                <button class="stack-btn toggle" onclick="togglePanel('transactions')" title="Collapse/expand">−</button>
+              </div>
+            </div>
+            <div class="stack-body" id="panel-transactions">
+              <div class="txn-feed" id="txnFeed"></div>
+            </div>
+          </div>
+          <div class="stack-panel" data-panel="reviews" style="order:3">
+            <div class="stack-header">
+              <div class="stack-title-group">
+                <div class="card-title">Recent Reviews</div>
+                <div class="card-badge gold">AI Generated</div>
+              </div>
+              <div class="stack-controls">
+                <button class="stack-btn" onclick="movePanel('reviews', -1)" title="Move up">▲</button>
+                <button class="stack-btn" onclick="movePanel('reviews', 1)" title="Move down">▼</button>
+                <button class="stack-btn toggle" onclick="togglePanel('reviews')" title="Collapse/expand">−</button>
+              </div>
+            </div>
+            <div class="stack-body" id="panel-reviews">
+              <div class="review-feed" id="reviewFeed"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Analytics -->
+      <section class="tab-content" id="tab-analytics">
+        <div class="charts-grid two-col">
+          <div class="card chart-card">
+            <div class="card-header"><div class="card-title">Wealth Distribution</div><div class="card-badge">Deciles</div></div>
+            <canvas id="chartWealth"></canvas>
+          </div>
+          <div class="card chart-card">
+            <div class="card-header"><div class="card-title">Category Sales</div><div class="card-badge">By Units</div></div>
+            <canvas id="chartCategory"></canvas>
+          </div>
+        </div>
+        <div class="bottom-grid">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Richest Consumers</div><div class="card-badge purple">Top 10</div></div>
+            <div class="table-wrap">
+              <table class="data-table" id="tableRichest">
+                <thead><tr><th class="num">#</th><th>Name</th><th class="num">Balance</th><th class="num">Purchases</th><th class="num">Spent</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Most Active</div><div class="card-badge teal">By Volume</div></div>
+            <div class="table-wrap">
+              <table class="data-table" id="tableActive">
+                <thead><tr><th class="num">#</th><th>Name</th><th class="num">Purchases</th><th class="num">Spent</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Category Details</div><div class="card-badge">Metrics</div></div>
+            <div class="table-wrap">
+              <table class="data-table" id="tableCategories">
+                <thead><tr><th>Category</th><th class="num">Products</th><th class="num">Sold</th><th class="num">Avg Price</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Agents -->
+      <section class="tab-content" id="tab-agents">
+        <div class="card toolbar-card">
+          <div class="toolbar">
+            <input type="text" id="agentSearch" placeholder="Search agents..." oninput="filterAgents()">
+            <select id="agentSort" onchange="filterAgents()">
+              <option value="balance-desc">Richest first</option>
+              <option value="balance-asc">Poorest first</option>
+              <option value="name">Alphabetical</option>
+            </select>
+            <button class="ctrl-btn step" onclick="loadAgents()">Refresh</button>
+            <span class="count-label" id="agentCount">(0)</span>
+          </div>
+        </div>
+        <div class="agent-grid-large" id="agentGrid"></div>
+      </section>
+
+      <!-- Tab: Events -->
+      <section class="tab-content" id="tab-events">
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-header"><div class="card-title">Active Market Events</div><div class="card-badge red">Now</div></div>
+          <div id="activeEvents" class="active-events-empty">No active events</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Event History</div><div class="card-badge">Timeline</div></div>
+          <div class="event-timeline" id="eventTimeline"></div>
+        </div>
+      </section>
+
+      <footer class="app-footer">
+        <div class="footer-left">
+          <span class="footer-logo">AMMS</span>
+          <span class="footer-dot">•</span>
+          <span>Autonomous Multi-Agent Market Simulator</span>
+        </div>
+        <div class="footer-right">
+          <span>v2.0</span>
+          <span class="footer-dot">•</span>
+          <span id="footerTick">Tick 0</span>
+          <span class="footer-dot">•</span>
+          <span id="footerStatus">Live</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
